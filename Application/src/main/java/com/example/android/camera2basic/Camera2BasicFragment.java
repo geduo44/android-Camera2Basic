@@ -68,6 +68,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
@@ -175,7 +176,7 @@ public class Camera2BasicFragment extends Fragment
      * A reference to the opened {@link CameraDevice}.
      */
     private CameraDevice mCameraDevice;
-
+    private CameraDevice mCameraDevice2;
     /**
      * The {@link android.util.Size} of camera preview.
      */
@@ -190,6 +191,7 @@ public class Camera2BasicFragment extends Fragment
         public void onOpened(@NonNull CameraDevice cameraDevice) {
             // This method is called when the camera is opened.  We start camera preview here.
             mCameraOpenCloseLock.release();
+            android.util.Log.d(TAG, "lisl0105 CameraID 0 onOpened");
             mCameraDevice = cameraDevice;
             createCameraPreviewSession();
         }
@@ -197,6 +199,7 @@ public class Camera2BasicFragment extends Fragment
         @Override
         public void onDisconnected(@NonNull CameraDevice cameraDevice) {
             mCameraOpenCloseLock.release();
+            android.util.Log.d(TAG, "lisl0105 CameraID 0 onDisconnected");
             cameraDevice.close();
             mCameraDevice = null;
         }
@@ -205,7 +208,39 @@ public class Camera2BasicFragment extends Fragment
         public void onError(@NonNull CameraDevice cameraDevice, int error) {
             mCameraOpenCloseLock.release();
             cameraDevice.close();
+            android.util.Log.d(TAG, "lisl0105 CameraID 0 onError error:" + error);
             mCameraDevice = null;
+            Activity activity = getActivity();
+            if (null != activity) {
+                activity.finish();
+            }
+        }
+
+    };
+    private final CameraDevice.StateCallback mStateCallback2 = new CameraDevice.StateCallback() {
+
+        @Override
+        public void onOpened(@NonNull CameraDevice cameraDevice) {
+            // This method is called when the camera is opened.  We start camera preview here.
+            mCameraOpenCloseLock.release();
+            android.util.Log.d(TAG, "lisl0105 CameraID 1 onOpened");
+            mCameraDevice2 = cameraDevice;
+            //createCameraPreviewSession();
+        }
+
+        @Override
+        public void onDisconnected(@NonNull CameraDevice cameraDevice) {
+            mCameraOpenCloseLock.release();
+            cameraDevice.close();
+            mCameraDevice2 = null;
+        }
+
+        @Override
+        public void onError(@NonNull CameraDevice cameraDevice, int error) {
+            mCameraOpenCloseLock.release();
+            cameraDevice.close();
+            mCameraDevice2 = null;
+            android.util.Log.d(TAG, "lisl0105 CameraID 1 onError error:" + error);
             Activity activity = getActivity();
             if (null != activity) {
                 activity.finish();
@@ -613,7 +648,21 @@ public class Camera2BasicFragment extends Fragment
             if (!mCameraOpenCloseLock.tryAcquire(2500, TimeUnit.MILLISECONDS)) {
                 throw new RuntimeException("Time out waiting to lock camera opening.");
             }
-            manager.openCamera(mCameraId, mStateCallback, mBackgroundHandler);
+            manager.openCamera("0", mStateCallback, mBackgroundHandler);
+            mBackgroundHandler.postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        if (ActivityCompat.checkSelfPermission(Objects.requireNonNull(getContext()), Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+                            return;
+                        }
+                        manager.openCamera("1", mStateCallback2, mBackgroundHandler);
+                    } catch (CameraAccessException ex) {
+                        ex.printStackTrace();
+                    }
+                }
+            }, 3000);
+
         } catch (CameraAccessException e) {
             e.printStackTrace();
         } catch (InterruptedException e) {
